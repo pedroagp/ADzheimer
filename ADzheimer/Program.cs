@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.DirectoryServices.AccountManagement;
 using System.Threading;
 using CommandLine;
@@ -25,19 +26,42 @@ namespace ADzheimer
         {
             Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(o => 
             {
-                string dummyPw = "DummyP4$$word" + DateTime.Now.Ticks;
-                ChangePassword(o.domain, o.username, o.password, $"{dummyPw}0");
+                //
+                // Hold current password all through the resetting
 
-                for (int i = 0; i < o.changescount - 1; i++)
+                var presentPassword = o.password;
+
+                foreach (int i in Enumerable.Range(1, o.changescount))
                 {
-                    ChangePassword(o.domain, o.username, $"{dummyPw}{i}", $"{dummyPw}{i + 1}");
+                    //
+                    // Set next password
+
+                    string nextPassword = $"{o.password}[{i}]";
+
+                    //
+                    // Change password
+
+                    ChangePassword(o.domain, o.username, presentPassword, nextPassword);
+
+                    //
+                    // Hopefully keep under the radar
+
                     if (o.sleepTime.HasValue)
                     {
                         Thread.Sleep(o.sleepTime.GetValueOrDefault());
                     }
+
+                    //
+                    // nextPassword is the new thing :)
+
+                    presentPassword = nextPassword;
                 }
 
-                ChangePassword(o.domain, o.username, $"{dummyPw}{o.changescount}", o.password);
+                //
+                // finally reset to original password,
+                // keeping IT happy
+
+                ChangePassword(o.domain, o.username, presentPassword, o.password);
             });
             Console.WriteLine("Done, press any key to exit");
             Console.ReadKey();
