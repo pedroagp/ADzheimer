@@ -17,8 +17,8 @@ namespace ADzheimer
             public string password { get; set; }
             [Option('s', "sleep", Required = false, HelpText = "Sleep time (ms) between password changes")]
             public int? sleepTime { get; set; }
-            [Option('k', "keepcurrent", Required = false, Default = true, HelpText = "Keep the current password after changing it to erase history")]
-            public bool keepcurrent { get; set; }
+            [Option('c', "changescount", Required = false, Default = 24, HelpText = "How many password change operations")]
+            public int changescount { get; set; }
         }
 
         static void Main(string[] args)
@@ -28,7 +28,7 @@ namespace ADzheimer
                 string dummyPw = "DummyP4$$word" + DateTime.Now.Ticks;
                 ChangePassword(o.domain, o.username, o.password, $"{dummyPw}0");
 
-                for (int i = 0; i < 24; i++)
+                for (int i = 0; i < o.changescount - 1; i++)
                 {
                     ChangePassword(o.domain, o.username, $"{dummyPw}{i}", $"{dummyPw}{i + 1}");
                     if (o.sleepTime.HasValue)
@@ -36,10 +36,8 @@ namespace ADzheimer
                         Thread.Sleep(o.sleepTime.GetValueOrDefault());
                     }
                 }
-                if (o.keepcurrent)
-                {
-                    ChangePassword(o.domain, o.username, $"{dummyPw}24", o.password);
-                }
+
+                ChangePassword(o.domain, o.username, $"{dummyPw}{o.changescount}", o.password);
             });
             Console.WriteLine("Done, press any key to exit");
             Console.ReadKey();
@@ -50,13 +48,15 @@ namespace ADzheimer
             try
             {
                 using (var context = new PrincipalContext(ContextType.Domain, domain))
-                using (var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName))
                 {
-                    user.ChangePassword(oldPassword, newPassword);
+                    using (var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName))
+                    {
+                        user.ChangePassword(oldPassword, newPassword);
+                        Console.WriteLine($"Password set from {oldPassword} to {newPassword}");
+                    }
                 }
-                Console.WriteLine($"Password set from {oldPassword} to {newPassword}");
-
             }
+
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
